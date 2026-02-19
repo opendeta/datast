@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <title>P2P File Transfer Test</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.4.7/peerjs.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #0d1117; color: white; padding: 40px; text-align: center; }
+        .container { background: #161b22; padding: 20px; border-radius: 15px; border: 1px solid #30363d; max-width: 500px; margin: auto; }
+        input { width: 80%; padding: 10px; margin: 10px 0; border-radius: 5px; border: 1px solid #30363d; background: #0d1117; color: white; }
+        button { background: #238636; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; margin: 5px; }
+        .status { color: #7ee787; font-weight: bold; margin-bottom: 20px; }
+        #log { margin-top: 20px; font-size: 13px; color: #8b949e; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>P2P কানেকশন টেস্ট</h2>
+        
+        <p>১. আপনার আইডি লিখুন (যেমন: user1 বা user2):</p>
+        <input type="text" id="myIdInput" placeholder="নিজের একটা নাম দিন">
+        <button onclick="startPeer()">কানেক্ট হোন (Online)</button>
+        
+        <div id="status" class="status">Offline</div>
+
+        <hr style="border: 0.5px solid #30363d; margin: 20px 0;">
+
+        <p>২. যাকে পাঠাবেন তার আইডি দিন:</p>
+        <input type="text" id="targetIdInput" placeholder="প্রাপকের আইডি">
+        <input type="file" id="fileInput">
+        <br>
+        <button onclick="sendFile()" style="background: #1f6feb;">ফাইল পাঠান (Send)</button>
+
+        <div id="log"></div>
+    </div>
+
+    <script>
+        let peer = null;
+
+        // ১. অনলাইনে আসা (Initialize Peer)
+        function startPeer() {
+            const myId = document.getElementById('myIdInput').value;
+            if(!myId) return alert("আগে নিজের একটা আইডি দিন!");
+
+            peer = new Peer(myId);
+
+            peer.on('open', (id) => {
+                document.getElementById('status').innerText = "Online হিসেবে আছেন: " + id;
+                document.getElementById('log').innerHTML += `<p>✅ আপনি এখন লাইভ!</p>`;
+            });
+
+            // ডাটা রিসিভ করার অংশ
+            peer.on('connection', (conn) => {
+                conn.on('data', (data) => {
+                    document.getElementById('log').innerHTML += `<p style="color: #7ee787;">📩 ফাইল এসেছে: ${data.name}</p>`;
+                    
+                    const blob = new Blob([data.file], {type: data.type});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = data.name;
+                    a.innerText = "Click to Download " + data.name;
+                    a.style.display = "block";
+                    a.style.color = "#58a6ff";
+                    document.getElementById('log').appendChild(a);
+                });
+            });
+
+            peer.on('error', (err) => alert("Error: " + err.type));
+        }
+
+        // ২. ফাইল পাঠানো (Send Logic)
+        function sendFile() {
+            const targetId = document.getElementById('targetIdInput').value;
+            const file = document.getElementById('fileInput').files[0];
+
+            if(!peer) return alert("আগে নিজে কানেক্ট হোন!");
+            if(!targetId || !file) return alert("প্রাপকের আইডি এবং ফাইল দিন!");
+
+            const conn = peer.connect(targetId);
+
+            conn.on('open', () => {
+                document.getElementById('log').innerHTML += `<p>📤 ফাইল পাঠানো হচ্ছে ${targetId}-কে...</p>`;
+                conn.send({
+                    file: file,
+                    name: file.name,
+                    type: file.type
+                });
+            });
+        }
+    </script>
+</body>
+</html>
